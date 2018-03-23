@@ -118,11 +118,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CoroutineContainer.cpp" />
+    <ClCompile Include="CoroutineCore.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="YieldInstruction.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Coroutine.h" />
+    <ClInclude Include="CoroutineContainer.h" />
+    <ClInclude Include="CoroutineCore.h" />
     <ClInclude Include="CoroutineManager.h" />
+    <ClInclude Include="YieldInstruction.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,10 +1,10 @@
 #pragma once
-#include "Coroutine.h"
 
 #include <memory>
 #include <vector>
 #include <deque>
-#include <algorithm>
+
+#include "CoroutineContainer.h"
 
 class CoroutineManager {
 	std::vector<std::shared_ptr<CoroutineContainerBase>> ActiveCoroutines;

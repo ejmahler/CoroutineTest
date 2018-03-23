@@ -18,12 +18,27 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="YieldInstruction.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CoroutineContainer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CoroutineCore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Coroutine.h">
+    <ClInclude Include="CoroutineManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CoroutineManager.h">
+    <ClInclude Include="YieldInstruction.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CoroutineContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CoroutineCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
