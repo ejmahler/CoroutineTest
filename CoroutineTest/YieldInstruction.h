@@ -1,66 +1,32 @@
 #pragma once
-#include <memory>
-#include <experimental/coroutine>
 
-class CoroutineContainerBase;
-class CoPromise;
+#include "Task.h"
 
-class NextFrame {
-public:
-	bool await_ready() const;
-	void await_suspend(std::experimental::coroutine_handle<CoPromise> awaitingCoroutine);
-	void await_resume() const;
-};
+struct NextFrame {
+	inline bool await_ready() const { return false; }
 
-class YieldInstruction {
-public:
-	virtual bool shouldResume(float DT) = 0;
+	template<class PromiseT>
+	inline void await_suspend(std::experimental::coroutine_handle<PromiseT> Handle) { Handle.promise().InnerTask = nullptr; }
+
+	inline void await_resume() const { }
 };
 
 
-// Wait for a specified number of seconds
-class Yield_WaitForSeconds : public YieldInstruction {
-	float remainingTime = 0.0f;
 
-	bool shouldResume(float DT) override;
-
+template<class ReturnT>
+class ExecuteTaskImpl {
 public:
-	Yield_WaitForSeconds(float InSeconds);
+	ExecuteTaskImpl(Task<ReturnT> &&InTask) : InnerTask(std::move(InTask)) {}
+
+	inline bool await_ready() { return InnerTask.Poll(); }
+	template<class PromiseT>
+	inline void await_suspend(std::experimental::coroutine_handle<PromiseT> Handle) { Handle.promise().InnerTask = &InnerTask; }
+	inline ReturnT await_resume() const { return InnerTask.GetReturnValue(); }
+
+private:
+	Task<ReturnT> InnerTask;
 };
-
-class WaitForSeconds {
-	float Seconds = 0.0f;
-public:
-	WaitForSeconds(float InSeconds);
-
-	bool await_ready() const;
-	void await_suspend(std::experimental::coroutine_handle<CoPromise> awaitingCoroutine);
-	void await_resume() const;
-};
-
-
-// Wait for another coroutine. Templated so it can be specialized for specific coroutine types
-class Yield_WaitForCoroutine : public YieldInstruction {
-public:
-	std::weak_ptr<CoroutineContainerBase> coroutine_ptr;
-
-	bool shouldResume(float DT) override;
-	Yield_WaitForCoroutine(std::shared_ptr<CoroutineContainerBase> in_ptr);
-};
-
-template<class CoroutineT>
-class WaitForCoroutine {
-	std::shared_ptr<CoroutineT> coroutine_ptr;
-public:
-	WaitForCoroutine(std::shared_ptr<CoroutineT> in_ptr) : coroutine_ptr(std::move(in_ptr)) { }
-
-	bool await_ready() const { return false; }
-	void await_suspend(std::experimental::coroutine_handle<CoPromise> awaitingCoroutine) {
-		// Don't hold on to our coroutine_ptr, since we don't need it after this!
-		awaitingCoroutine.promise().CurrentYield = std::make_shared<Yield_WaitForCoroutine>(std::move(coroutine_ptr));
-	}
-	void await_resume() const {}
-};
-
-template<class CoroutineT>
-inline WaitForCoroutine<CoroutineT> operator co_await(std::shared_ptr<CoroutineT> in_ptr) { return WaitForCoroutine<CoroutineT>{ std::move(in_ptr) }; }
+template<class ReturnT>
+auto operator co_await(Task<ReturnT> &&InTask) {
+	return ExecuteTaskImpl<ReturnT> { std::move(InTask) };
+}

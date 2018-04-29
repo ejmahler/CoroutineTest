@@ -4,7 +4,7 @@
 #include <vector>
 #include <deque>
 
-#include "CoroutineContainer.h"
+/*
 
 class CoroutineManager {
 	std::vector<std::shared_ptr<CoroutineContainerBase>> ActiveCoroutines;
@@ -51,3 +51,5 @@ public:
 		NewCoroutineQueue.push_back(NewCoroutine);
 	}
 };
+
+*/
