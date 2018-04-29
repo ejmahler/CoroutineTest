@@ -57,3 +57,7 @@ bool TaskBase::Poll() {
 	// If we get to theis point the task isn't finished yet
 	return false;
 }
+
+Task<void> TaskPromise<void>::get_return_object() {
+	return Task<void>{ std::experimental::coroutine_handle<TaskPromise<void>>::from_promise(*this), M_SharedState };
+}

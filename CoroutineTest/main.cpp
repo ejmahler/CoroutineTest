@@ -5,13 +5,19 @@
 #include <algorithm>
 #include <string>
 
+#include "Time.h"
 #include "Task.h"
 #include "CoroutineManager.h"
 #include "YieldInstruction.h"
 
+Coroutine InnerTask0() {
+	co_await WaitForSeconds(2.0f);
+}
+
 Task<int> InnerTask1() {
 	co_return 1;
 }
+
 
 Task<int> InnerTask2() {
 	co_await NextFrame{};
@@ -24,6 +30,8 @@ Task<float> DoThing(int x) {
 		sum += i;
 		co_await NextFrame{};
 	}
+
+	co_await InnerTask0();
 
 	co_return sum + co_await InnerTask1() + co_await InnerTask2();
 }
@@ -42,6 +50,8 @@ int main() {
 
 		float DT = std::chrono::duration_cast<std::chrono::duration<float>>(current_time - prev_time).count();
 		DT = std::min(DT, 0.4f);
+
+		Time::Update(DT);
 
 		prev_time = current_time;
 	}
