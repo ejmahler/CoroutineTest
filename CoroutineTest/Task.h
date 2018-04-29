@@ -158,6 +158,7 @@ public:
 	{}
 
 	void TakeReturnValue() const { }
+	bool IsFinished() const { return M_View->M_IsFinished; }
 	std::shared_ptr<TaskView<void>> GetView() const { return M_View; }
 	Task<void> SetName(std::string name) { M_View->M_DebugName = name; return std::move(*this); }
 private:
