@@ -1,6 +1,7 @@
 #pragma once
 #include <experimental/coroutine>
 #include <string>
+#include <optional>
 
 class TaskBase;
 template<class ReturnT> class Task;
@@ -19,6 +20,7 @@ struct TaskPromiseBase {
 class TaskBase
 {
 public:
+	TaskBase() = default;
 	inline TaskBase(std::experimental::coroutine_handle<> InHandle, TaskPromiseBase *InPromisePtr) : M_Handle(InHandle), M_PromisePtr(InPromisePtr) {}
 	~TaskBase();
 
@@ -45,8 +47,10 @@ private:
 template<class ReturnT>
 class TaskView {
 public:
-	bool IsFinished() const { return bool(M_ReturnValue); }
-	const ReturnT& GetReturnValue() { return *M_ReturnValue; }
+	TaskView() = default;
+
+	bool IsFinished() const { return M_IsFinished; }
+	ReturnT TakeReturnValue() { return std::move(M_ReturnValue); }
 	const std::string& GetDebugName() { return M_DebugName; }
 
 private:
@@ -54,7 +58,8 @@ private:
 	friend TaskPromise<ReturnT>;
 
 	std::string M_DebugName;
-	std::unique_ptr<ReturnT> M_ReturnValue = nullptr;
+	bool M_IsFinished;
+	ReturnT M_ReturnValue; // Contains default value until the task finishes!
 };
 
 
@@ -68,7 +73,8 @@ struct TaskPromise : public TaskPromiseBase {
 	}
 
 	void return_value(ReturnT &&Value) {
-		M_SharedState->M_ReturnValue = std::make_unique<ReturnT>(std::move(Value));
+		M_SharedState->M_IsFinished = true;
+		M_SharedState->M_ReturnValue = std::move(Value);
 	}
 
 	// When this is not null, the coroutine has returned, and the contents of this pointer are the return value
@@ -86,8 +92,8 @@ public:
 		M_View(std::move(InView))
 	{}
 
-	bool IsFinished() const { return M_View->IsFinished(); }
-	const ReturnT& GetReturnValue() const { return M_View->GetReturnValue(); }
+	ReturnT TakeReturnValue() { return std::move(M_View->TakeReturnValue()); }
+	Task<ReturnT> SetName(std::string name) { M_View->M_DebugName = name; return std::move(*this); }
 
 private:
 	std::shared_ptr<TaskView<ReturnT>> M_View;
@@ -151,8 +157,9 @@ public:
 		M_View(std::move(InView))
 	{}
 
-	bool IsFinished() const { return M_View->IsFinished(); }
+	void TakeReturnValue() const { }
 	std::shared_ptr<TaskView<void>> GetView() const { return M_View; }
+	Task<void> SetName(std::string name) { M_View->M_DebugName = name; return std::move(*this); }
 private:
 	std::shared_ptr<TaskView<void>> M_View;
 };

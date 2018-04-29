@@ -10,6 +10,7 @@
 #include "CoroutineManager.h"
 #include "YieldInstruction.h"
 
+
 Coroutine InnerTask0() {
 	co_await WaitForSeconds(2.0f);
 }
@@ -31,9 +32,24 @@ Task<float> DoThing(int x) {
 		co_await NextFrame{};
 	}
 
-	co_await InnerTask0();
+	bool shortTimeoutFinished = co_await Timeout(1.0f, InnerTask0());
+	bool longTimeoutFinished = co_await Timeout(3.0f, InnerTask0());
 
 	co_return sum + co_await InnerTask1() + co_await InnerTask2();
+}
+
+struct RecursiveTask {
+	RecursiveTask() = default;
+	RecursiveTask(Task<RecursiveTask> &&InTask)
+		: NextTask(std::make_unique<Task<RecursiveTask>>(std::move(InTask)))
+	{ }
+
+	std::unique_ptr<Task<RecursiveTask>> NextTask;
+};
+
+Task<RecursiveTask> DoRecursiveTask() {
+	co_await DoThing(20);
+	co_return RecursiveTask{ DoRecursiveTask() };
 }
 
 
@@ -41,10 +57,15 @@ int main() {
 	auto sleep_time = std::chrono::milliseconds(200);
 	auto prev_time = std::chrono::steady_clock::now();
 
-	Task<float> TaskInstance = DoThing(20);
+	auto ActiveTask = std::make_unique<Task<RecursiveTask>>(DoRecursiveTask());
 
 	// Run the manager until the task finishes
-	while (!TaskInstance.Poll()) {
+	while (true) {
+		if (ActiveTask->Poll()) {
+			ActiveTask = ActiveTask->TakeReturnValue().NextTask;
+			ActiveTask->Poll();
+		}
+
 		std::this_thread::sleep_for(sleep_time);
 		auto current_time = std::chrono::steady_clock::now();
 
@@ -55,6 +76,4 @@ int main() {
 
 		prev_time = current_time;
 	}
-
-	int abc = 5;
 }
