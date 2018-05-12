@@ -73,11 +73,10 @@ Task<RecursiveTask> DoRecursiveTask() {
 }
 
 std::experimental::generator<float> IntervalTimer(int interval_ms) {
-	auto sleep_time = std::chrono::milliseconds(200);
 	auto prev_time = std::chrono::steady_clock::now();
 
 	while (true) {
-		std::this_thread::sleep_for(sleep_time);
+		std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
 		auto current_time = std::chrono::steady_clock::now();
 
 		float DT = std::chrono::duration_cast<std::chrono::duration<float>>(current_time - prev_time).count();
