@@ -7,8 +7,8 @@
 #include "Task.h"
 
 class CoroutineManager {
-	std::vector<Coroutine> ActiveCoroutines;
-	std::deque<Coroutine> NewCoroutineQueue;
+	std::vector<TaskController> ActiveCoroutines;
+	std::deque<TaskController> NewCoroutineQueue;
 
 public:
 	bool HasCoroutines() const {
@@ -17,7 +17,7 @@ public:
 
 	void Tick() {
 		// Poll all running coroutines
-		for (Coroutine& ActiveCoroutine : ActiveCoroutines) {
+		for (TaskController& ActiveCoroutine : ActiveCoroutines) {
 			ActiveCoroutine.Poll();
 		}
 
@@ -25,13 +25,13 @@ public:
 		ActiveCoroutines.erase(
 			std::remove_if(
 				ActiveCoroutines.begin(), ActiveCoroutines.end(),
-				[](const auto& Coro) { return Coro.IsFinished(); }),
+				[](const TaskController& Coro) { return Coro.IsFinished(); }),
 			ActiveCoroutines.end()
 		);
 
 		// Process new coroutines
 		while (!NewCoroutineQueue.empty()) {
-			Coroutine NewCoroutine = std::move(NewCoroutineQueue.front());
+			TaskController NewCoroutine = std::move(NewCoroutineQueue.front());
 			NewCoroutineQueue.pop_front();
 
 			if (!NewCoroutine.Poll()) {
@@ -40,7 +40,9 @@ public:
 		}
 	}
 
-	void QueueCoroutine(Coroutine &&NewCoroutine) {
-		NewCoroutineQueue.emplace_back(std::move(NewCoroutine));
+	template<class ReturnT>
+	std::shared_ptr<TaskState<ReturnT>> QueueCoroutine(Task<ReturnT> &&NewTask) {
+		NewCoroutineQueue.emplace_back(NewTask.TakeController());
+		return NewTask.TakeState();
 	}
 };

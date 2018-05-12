@@ -2,8 +2,24 @@
 
 #include <optional>
 
-#include "Time.h"
 #include "Task.h"
+
+
+class Time {
+	static float S_DT;
+	static float S_GameTime;
+
+public:
+	inline static float DT() { return S_DT; }
+	inline static float GameTime() { return S_GameTime; }
+	inline static float GameTimeSince(float EarlierTime) { return S_GameTime - EarlierTime; }
+
+	inline static void Update(float DT) {
+		S_DT = DT;
+		S_GameTime += DT;
+	}
+};
+
 
 struct NextFrame {
 	inline bool await_ready() const { return false; }
@@ -18,16 +34,23 @@ struct NextFrame {
 template<class ReturnT>
 class ExecuteTask {
 public:
-	ExecuteTask(Task<ReturnT> &&InTask) : InnerTask(std::move(InTask)) {}
+	ExecuteTask(Task<ReturnT> &&InnerTask) : M_Controller(InnerTask.TakeController()), M_State(InnerTask.TakeState()) {}
 
-	inline bool await_ready() { return InnerTask.Poll(); }
-	template<class PromiseT>
-	inline void await_suspend(std::experimental::coroutine_handle<PromiseT> Handle) { Handle.promise().InnerTask = &InnerTask; }
-	inline ReturnT await_resume() { return InnerTask.TakeReturnValue(); }
+	inline bool await_ready() { return M_Controller.Poll(); }
+	template<class OuterPromiseT>
+	inline void await_suspend(std::experimental::coroutine_handle<OuterPromiseT> OuterHandle) { OuterHandle.promise().InnerTask = &M_Controller; }
+	inline ReturnT await_resume();
 
 private:
-	Task<ReturnT> InnerTask;
+	TaskController M_Controller;
+	std::shared_ptr<TaskState<ReturnT>> M_State;
 };
+
+template<class ReturnT>
+ReturnT ExecuteTask<ReturnT>::await_resume() { return *(M_State->TakeReturnValue()); }
+
+template<>
+void ExecuteTask<void>::await_resume() { }
 
 template<class ReturnT>
 auto operator co_await(Task<ReturnT> &&InTask) {
@@ -36,30 +59,32 @@ auto operator co_await(Task<ReturnT> &&InTask) {
 
 
 // coroutine that finishes after the specified number of seconds have passed
-Coroutine __WaitForSeconds_Impl(float Seconds) {
+inline Coroutine WaitForSeconds(float Seconds) {
+	co_await SetName("WaitForSeconds");
+
 	const float BeginTime = Time::GameTime();
 	while (Time::GameTimeSince(BeginTime) < Seconds) {
 		co_await NextFrame{};
 	}
 }
-Coroutine WaitForSeconds(float Seconds) { return __WaitForSeconds_Impl(Seconds).SetName("WaitForSeconds"); }
 
 
 
 // coroutine that finishes when the provided predicate returns true.
 template<class PredicateT>
-Coroutine __WaitUntil_Impl(PredicateT predicate) {
+Coroutine WaitUntil(PredicateT predicate) {
+	co_await SetName("WaitUntil");
 	while (!predicate()) {
 		co_await NextFrame{};
 	}
 }
-template<class PredicateT>
-Coroutine WaitUntil(PredicateT predicate) { return __WaitUntil_Impl(predicate).SetName("WaitUntil"); }
 
 
 
 // Task that executes the provided coroutine until the provided timeout elapses. If the timeout expires, cancels the coroutine. Returns true if the task finished before the timeout, false if the task was canceled.
-Task<bool> __Timeout_Impl(float TimeoutSeconds, Task<void> Task) {
+inline Task<bool> Timeout(float TimeoutSeconds, Task<void> Task) {
+	co_await SetName("Timeout");
+
 	const float BeginTime = Time::GameTime();
 	while (Time::GameTimeSince(BeginTime) < TimeoutSeconds) {
 		if (Task.Poll()) {
@@ -69,13 +94,14 @@ Task<bool> __Timeout_Impl(float TimeoutSeconds, Task<void> Task) {
 	}
 	co_return false;
 }
-Task<bool> Timeout(float TimeoutSeconds, Task<void> Task) { return __Timeout_Impl(TimeoutSeconds, std::move(Task)).SetName("Timeout"); }
 
 
 
 // Task that executes the provided task until the provided timeout elapses. If the timeout expires, cancels the task. Returns the task's return value if the task finished before the timeout, or nullopt if the task was canceled.
 template<class ReturnT>
-Task<std::optional<ReturnT>> __Timeout_Impl(float TimeoutSeconds, Task<ReturnT> Task) {
+Task<std::optional<ReturnT>> Timeout(float TimeoutSeconds, Task<ReturnT> Task) {
+	co_await SetName("Timeout");
+
 	const float BeginTime = Time::GameTime();
 	while (Time::GameTimeSince(BeginTime) < TimeoutSeconds) {
 		if (Task.Poll()) {
@@ -85,8 +111,6 @@ Task<std::optional<ReturnT>> __Timeout_Impl(float TimeoutSeconds, Task<ReturnT> 
 	}
 	co_return std::optional<ReturnT>{};
 }
-template<class ReturnT>
-Task<std::optional<ReturnT>> Timeout(float TimeoutSeconds, Task<ReturnT> Task) { return __Timeout_Impl(TimeoutSeconds, std::move(Task)).SetName("Timeout"); }
 
 
 

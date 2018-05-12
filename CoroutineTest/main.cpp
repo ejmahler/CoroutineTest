@@ -57,7 +57,7 @@ int main() {
 	auto sleep_time = std::chrono::milliseconds(200);
 	auto prev_time = std::chrono::steady_clock::now();
 
-
+	/*
 	// Running coroutines inside a manager
 	CoroutineManager Manager;
 	Manager.QueueCoroutine(InnerTask0());
@@ -73,13 +73,15 @@ int main() {
 		Time::Update(DT);
 
 		prev_time = current_time;
-	}
+	}*/
 
 	// Tasks don't require a manager to run
 	auto ActiveTask = std::make_unique<Task<RecursiveTask>>(DoRecursiveTask());
 	while (true) {
 		if (ActiveTask->Poll()) {
-			ActiveTask = ActiveTask->TakeReturnValue().NextTask;
+			auto NextTask = ActiveTask->TakeReturnValue().NextTask;
+			int abc = 5;
+			ActiveTask = std::move(NextTask);
 			ActiveTask->Poll();
 		}
 

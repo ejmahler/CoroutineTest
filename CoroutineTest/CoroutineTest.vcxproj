@@ -111,6 +111,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/await %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -120,12 +122,13 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Task.cpp" />
+    <ClCompile Include="TaskController.cpp" />
     <ClCompile Include="YieldInstruction.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CoroutineManager.h" />
     <ClInclude Include="Task.h" />
-    <ClInclude Include="Time.h" />
+    <ClInclude Include="TaskController.h" />
     <ClInclude Include="YieldInstruction.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
