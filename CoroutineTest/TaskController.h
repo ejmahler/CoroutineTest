@@ -1,5 +1,6 @@
 #pragma once
 #include <experimental/coroutine>
+#include <string>
 
 class TaskController;
 
@@ -7,6 +8,9 @@ class TaskController;
 struct TaskPromiseBase {
 	inline auto initial_suspend() { return true; }
 	inline auto final_suspend() { return true; }
+
+	// A string identifying this task, intended for debugging purposes.
+	std::string M_DebugName;
 
 	//if this is true, resume() should never be called again
 	bool bCanceled = false;
@@ -41,6 +45,9 @@ public:
 
 	// Destroy this controller's coroutine and null everything out.
 	void Cleanup();
+
+	std::string GetDebugName() const;
+	std::string GetFullDebugString() const;
 private:
 	// I would love to store just M_Handle here, but it appears like polymorphism of promises isn't allowed, and we specifically only want a pointer to the base class.
 	// So we're going full hackjob and storing a blank handle plus a separate pointer to the promise.

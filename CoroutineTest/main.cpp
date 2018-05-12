@@ -12,20 +12,35 @@
 
 
 Coroutine InnerTask0() {
+	co_await SetName("InnerTask0");
+
 	co_await WaitForSeconds(2.0f);
 }
 
 Task<int> InnerTask1() {
+	co_await SetName("InnerTask1");
+
 	co_return 1;
 }
 
 
 Task<int> InnerTask2() {
-	co_await NextFrame{};
+	co_await SetName("InnerTask2");
+
+	co_await InnerTask0();
 	co_return 2;
 }
 
+Task<int> LongTask() {
+	co_await SetName("LongTask");
+
+	co_await WaitForSeconds(2.0f);
+	co_return 6;
+}
+
 Task<float> DoThing(int x) {
+	co_await SetName("DoThing");
+
 	float sum = 0;
 	for (int i = 0; i < x; i++) {
 		sum += i;
@@ -35,7 +50,9 @@ Task<float> DoThing(int x) {
 	bool shortTimeoutFinished = co_await Timeout(1.0f, InnerTask0());
 	bool longTimeoutFinished = co_await Timeout(3.0f, InnerTask0());
 
-	co_return sum + co_await InnerTask1() + co_await InnerTask2();
+	std::optional<int> LongTaskResult = co_await Timeout(3.0f, LongTask());
+
+	co_return sum + co_await InnerTask1() + co_await InnerTask2() + LongTaskResult.value_or(0);
 }
 
 struct RecursiveTask {
@@ -48,6 +65,8 @@ struct RecursiveTask {
 };
 
 Task<RecursiveTask> DoRecursiveTask() {
+	co_await SetName("DoRecursiveTask");
+
 	co_await DoThing(20);
 	co_return RecursiveTask{ DoRecursiveTask() };
 }
@@ -84,6 +103,8 @@ int main() {
 			ActiveTask = std::move(NextTask);
 			ActiveTask->Poll();
 		}
+
+		std::cout << ActiveTask->GetFullDebugString() << std::endl;
 
 		std::this_thread::sleep_for(sleep_time);
 		auto current_time = std::chrono::steady_clock::now();

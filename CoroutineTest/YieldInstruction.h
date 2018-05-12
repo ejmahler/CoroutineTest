@@ -74,6 +74,7 @@ inline Coroutine WaitForSeconds(float Seconds) {
 template<class PredicateT>
 Coroutine WaitUntil(PredicateT predicate) {
 	co_await SetName("WaitUntil");
+
 	while (!predicate()) {
 		co_await NextFrame{};
 	}
@@ -83,16 +84,27 @@ Coroutine WaitUntil(PredicateT predicate) {
 
 // Task that executes the provided coroutine until the provided timeout elapses. If the timeout expires, cancels the coroutine. Returns true if the task finished before the timeout, false if the task was canceled.
 inline Task<bool> Timeout(float TimeoutSeconds, Task<void> Task) {
-	co_await SetName("Timeout");
-
+	// Initial iteration, to see if we even need to run
 	const float BeginTime = Time::GameTime();
-	while (Time::GameTimeSince(BeginTime) < TimeoutSeconds) {
+	if (Task.Poll()) {
+		co_return true;
+	}
+	if (Time::GameTimeSince(BeginTime) >= TimeoutSeconds) {
+		co_return false;
+	}
+
+	// We didn't early-exit, so get ready to run long-term (note that the Task's DebugName will be unset of we don't call poll() a few lines above, otherwise this would all be in the loop)
+	co_await SetName("Timeout: " + Task.GetDebugName());
+	while (true) {
+		co_await NextFrame{};
+
 		if (Task.Poll()) {
 			co_return true;
 		}
-		co_await NextFrame{};
+		if (Time::GameTimeSince(BeginTime) >= TimeoutSeconds) {
+			co_return false;
+		}
 	}
-	co_return false;
 }
 
 
@@ -100,16 +112,27 @@ inline Task<bool> Timeout(float TimeoutSeconds, Task<void> Task) {
 // Task that executes the provided task until the provided timeout elapses. If the timeout expires, cancels the task. Returns the task's return value if the task finished before the timeout, or nullopt if the task was canceled.
 template<class ReturnT>
 Task<std::optional<ReturnT>> Timeout(float TimeoutSeconds, Task<ReturnT> Task) {
-	co_await SetName("Timeout");
-
+	// Initial iteration, to see if we even need to run
 	const float BeginTime = Time::GameTime();
-	while (Time::GameTimeSince(BeginTime) < TimeoutSeconds) {
-		if (Task.Poll()) {
-			co_return Task.GetReturnValue();
-		}
-		co_await NextFrame{};
+	if (Task.Poll()) {
+		co_return Task.TakeReturnValue();
 	}
-	co_return std::optional<ReturnT>{};
+	if (Time::GameTimeSince(BeginTime) >= TimeoutSeconds) {
+		co_return std::nullopt;
+	}
+
+	// We didn't early-exit, so get ready to run long-term (note that the Task's DebugName will be unset of we don't call poll() a few lines above, otherwise this would all be in the loop)
+	co_await SetName("Timeout: " + Task.GetDebugName());
+	while (true) {
+		co_await NextFrame{};
+
+		if (Task.Poll()) {
+			co_return Task.TakeReturnValue();
+		}
+		if (Time::GameTimeSince(BeginTime) >= TimeoutSeconds) {
+			co_return std::nullopt;
+		}
+	}
 }
 
 

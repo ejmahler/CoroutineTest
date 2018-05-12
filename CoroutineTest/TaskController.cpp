@@ -62,7 +62,7 @@ bool TaskController::Poll() {
 }
 
 bool TaskController::IsFinished() const {
-	return !M_Handle;
+	return !M_Handle || M_PromisePtr->bCanceled;
 }
 
 void TaskController::Cleanup() {
@@ -70,5 +70,28 @@ void TaskController::Cleanup() {
 		M_Handle.destroy();
 		M_Handle = nullptr;
 		M_PromisePtr = nullptr;
+	}
+}
+
+std::string TaskController::GetDebugName() const {
+	if (!M_PromisePtr) {
+		return "[destroyed]";
+	}
+	else{
+		return M_PromisePtr->M_DebugName;
+	}
+}
+
+std::string TaskController::GetFullDebugString() const {
+	if (!M_PromisePtr) {
+		return "[destroyed]";
+	}
+
+	std::string Base = M_PromisePtr->M_DebugName;
+	if (M_PromisePtr && M_PromisePtr->InnerTask) {
+		return Base + " -> " + M_PromisePtr->InnerTask->GetFullDebugString();
+	}
+	else {
+		return Base;
 	}
 }
