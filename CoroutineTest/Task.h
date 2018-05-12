@@ -25,8 +25,8 @@ public:
 	TaskState() = default;
 
 	bool IsFinished() const { return M_IsFinished; }
-	std::optional<ReturnT> TakeReturnValue() { return std::move(M_ReturnValue); }
 	const std::string& GetDebugName() { return M_DebugName; }
+	std::optional<ReturnT> TakeReturnValue() { return std::move(M_ReturnValue); }
 
 private:
 	friend TaskPromise<ReturnT>;
@@ -36,7 +36,7 @@ private:
 	std::optional<ReturnT> M_ReturnValue; // Contains nullopt until the task finishes!
 };
 
-// Specialized for ReturnT=<void>
+// Specialized for ReturnT=<void> -- the return value is meaningless here so we just omit it entirely
 template<>
 class TaskState<void> {
 public:
@@ -58,13 +58,15 @@ private:
 template<class ReturnT>
 struct TaskPromise : public TaskPromiseBase {
 	TaskPromise(void) : M_SharedState(std::make_shared<TaskState<ReturnT>>()) {}
+	~TaskPromise() {
+		M_SharedState->M_IsFinished = true;
+	}
 
 	Task<ReturnT> get_return_object() {
 		return Task<ReturnT>{ std::experimental::coroutine_handle<TaskPromise<ReturnT>>::from_promise(*this), M_SharedState };
 	}
 
 	void return_value(ReturnT &&Value) {
-		M_SharedState->M_IsFinished = true;
 		M_SharedState->M_ReturnValue = std::move(Value);
 	}
 
@@ -74,16 +76,15 @@ struct TaskPromise : public TaskPromiseBase {
 	std::shared_ptr<TaskState<ReturnT>> M_SharedState;
 };
 
-// Specialized for ReturnT=<void>
+// Specialized for ReturnT=<void> -- no return_value() because there's nothing to return
 template<>
 struct TaskPromise<void> : public TaskPromiseBase {
 	TaskPromise(void) : M_SharedState(std::make_shared<TaskState<void>>()) {}
-
-	Task<void> get_return_object();
-
-	void return_void() {
+	~TaskPromise() {
 		M_SharedState->M_IsFinished = true;
 	}
+
+	Task<void> get_return_object();
 
 	void SetName(std::string name) { M_SharedState->M_DebugName = name; }
 

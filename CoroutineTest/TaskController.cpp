@@ -3,9 +3,7 @@
 
 
 TaskController::~TaskController() {
-	if (M_Handle) {
-		M_Handle.destroy();
-	}
+	Cleanup();
 }
 
 TaskController::TaskController(TaskController &&Other) : M_Handle(Other.M_Handle), M_PromisePtr(Other.M_PromisePtr) {
@@ -32,6 +30,12 @@ bool TaskController::Poll() {
 		return true;
 	}
 
+	// If we've been cancelled, clean up and early-return
+	if (M_PromisePtr->bCanceled) {
+		Cleanup();
+		return true;
+	}
+
 	// If this task has an inner task, poll that task to see if it's done
 	if (M_PromisePtr->InnerTask) {
 
@@ -47,10 +51,7 @@ bool TaskController::Poll() {
 
 		// If our own task returned on this resume, destroy the taks state and return true to indicate that we are done
 		if (M_Handle.done()) {
-			M_Handle.destroy();
-
-			M_Handle = nullptr;
-			M_PromisePtr = nullptr;
+			Cleanup();
 
 			return true;
 		}
@@ -62,4 +63,12 @@ bool TaskController::Poll() {
 
 bool TaskController::IsFinished() const {
 	return !M_Handle;
+}
+
+void TaskController::Cleanup() {
+	if (M_Handle) {
+		M_Handle.destroy();
+		M_Handle = nullptr;
+		M_PromisePtr = nullptr;
+	}
 }

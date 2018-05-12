@@ -8,6 +8,9 @@ struct TaskPromiseBase {
 	inline auto initial_suspend() { return true; }
 	inline auto final_suspend() { return true; }
 
+	//if this is true, resume() should never be called again
+	bool bCanceled = false;
+
 	// Optional non-owning pointer to an inner task. If set, calls to this task's poll() method will be forward to InnerTask's poll() until it finishes
 	TaskController *InnerTask = nullptr;
 };
@@ -35,6 +38,9 @@ public:
 
 	// Returns true if the task has stopped.
 	bool IsFinished() const;
+
+	// Destroy this controller's coroutine and null everything out.
+	void Cleanup();
 private:
 	// I would love to store just M_Handle here, but it appears like polymorphism of promises isn't allowed, and we specifically only want a pointer to the base class.
 	// So we're going full hackjob and storing a blank handle plus a separate pointer to the promise.
