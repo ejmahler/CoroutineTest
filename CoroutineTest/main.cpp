@@ -4,6 +4,7 @@
 #include <ratio>
 #include <algorithm>
 #include <string>
+#include <experimental/generator>
 
 #include "Time.h"
 #include "Task.h"
@@ -71,18 +72,11 @@ Task<RecursiveTask> DoRecursiveTask() {
 	co_return RecursiveTask{ DoRecursiveTask() };
 }
 
-
-int main() {
+std::experimental::generator<float> IntervalTimer(int interval_ms) {
 	auto sleep_time = std::chrono::milliseconds(200);
 	auto prev_time = std::chrono::steady_clock::now();
 
-	/*
-	// Running coroutines inside a manager
-	CoroutineManager Manager;
-	Manager.QueueCoroutine(InnerTask0());
-	while (Manager.HasCoroutines()) {
-		Manager.Tick();
-
+	while (true) {
 		std::this_thread::sleep_for(sleep_time);
 		auto current_time = std::chrono::steady_clock::now();
 
@@ -90,30 +84,54 @@ int main() {
 		DT = std::min(DT, 0.4f);
 
 		Time::Update(DT);
-
 		prev_time = current_time;
-	}*/
+
+		co_yield DT;
+	}
+}
+
+
+int main() {
+	CoroutineManager Manager;
+
+	// Running coroutines inside a manager
+	{
+		auto State = Manager.QueueCoroutine(InnerTask0());
+
+		for (float DT : IntervalTimer(200)) {
+			Manager.Tick();
+
+			if (!Manager.HasCoroutines()) {
+				break;
+			}
+		}
+
+		// State.IsFinished() returns true
+	}
+
+	// If we let the return value of QueueCoroutine drop, the task is canceled
+	{
+		Manager.QueueCoroutine(InnerTask0());
+
+		for (float DT : IntervalTimer(200)) {
+			Manager.Tick();
+
+			if (!Manager.HasCoroutines()) {
+				break;
+			}
+		}
+
+		// State.IsFinished() returns true
+	}
 
 	// Tasks don't require a manager to run
 	auto ActiveTask = std::make_unique<Task<RecursiveTask>>(DoRecursiveTask());
-	while (true) {
+	for (float DT: IntervalTimer(200)) {
 		if (ActiveTask->Poll()) {
-			auto NextTask = ActiveTask->TakeReturnValue().NextTask;
-			int abc = 5;
-			ActiveTask = std::move(NextTask);
-			ActiveTask->Poll();
+			ActiveTask = std::move(ActiveTask->TakeReturnValue().NextTask);
+			ActiveTask->Poll(); // By convention, we want every task to be polled on the frame that it starts, to let it do setup etc
 		}
 
 		std::cout << ActiveTask->GetFullDebugString() << std::endl;
-
-		std::this_thread::sleep_for(sleep_time);
-		auto current_time = std::chrono::steady_clock::now();
-
-		float DT = std::chrono::duration_cast<std::chrono::duration<float>>(current_time - prev_time).count();
-		DT = std::min(DT, 0.4f);
-
-		Time::Update(DT);
-
-		prev_time = current_time;
 	}
 }

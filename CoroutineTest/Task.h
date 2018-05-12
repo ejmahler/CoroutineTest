@@ -23,6 +23,11 @@ template<class ReturnT>
 class TaskState {
 public:
 	TaskState(TaskPromise<ReturnT> *InPromise) : M_PromisePtr(InPromise) {}
+	~TaskState() {
+		if (M_PromisePtr) {
+			M_PromisePtr->bCanceled = true;
+		}
+	}
 
 	bool IsFinished() const { return !M_PromisePtr; }
 	std::optional<ReturnT> TakeReturnValue() { return std::move(M_ReturnValue); }
@@ -48,6 +53,7 @@ template<>
 class TaskState<void> {
 public:
 	TaskState(TaskPromise<void> *InPromise) : M_PromisePtr(InPromise) {}
+	~TaskState();
 
 	bool IsFinished() const { return !M_PromisePtr; }
 
@@ -66,35 +72,35 @@ private:
 // a promise that manages a Task. The Task must return a ReturnT when it finishes
 template<class ReturnT>
 struct TaskPromise : public TaskPromiseBase {
-	TaskPromise(void) : M_SharedState(std::make_shared<TaskState<ReturnT>>(this)) {}
 	~TaskPromise() {
-		M_SharedState->M_PromisePtr = nullptr;
+		if (auto StrongPtr = M_SharedState.lock()) { StrongPtr->M_PromisePtr = nullptr; }
 	}
 
 	Task<ReturnT> get_return_object() {
-		return Task<ReturnT>{ std::experimental::coroutine_handle<TaskPromise<ReturnT>>::from_promise(*this), M_SharedState };
+		auto SharedState = std::make_shared<TaskState<ReturnT>>(this);
+		M_SharedState = SharedState;
+		return Task<ReturnT>{ std::experimental::coroutine_handle<TaskPromise<ReturnT>>::from_promise(*this), SharedState };
 	}
 
 	void return_value(ReturnT &&Value) {
-		M_SharedState->M_ReturnValue = std::move(Value);
+		M_SharedState.lock()->M_ReturnValue = std::move(Value);
 	}
 
-	// Pointer to state that is shared between the promise, the task, and task views
-	std::shared_ptr<TaskState<ReturnT>> M_SharedState;
+	// Pointer to state that is shared between the promise, the task, and task views. weak so that a library user dropping their pointer to the TaskState will cancel the task
+	std::weak_ptr<TaskState<ReturnT>> M_SharedState;
 };
 
 // Specialized for ReturnT=<void> -- no return_value() because there's nothing to return
 template<>
 struct TaskPromise<void> : public TaskPromiseBase {
-	TaskPromise(void) : M_SharedState(std::make_shared<TaskState<void>>(this)) {}
 	~TaskPromise() {
-		M_SharedState->M_PromisePtr = nullptr;
+		if (auto StrongPtr = M_SharedState.lock()) { StrongPtr->M_PromisePtr = nullptr; }
 	}
 
 	Task<void> get_return_object();
 
-	// When this is not null, the coroutine has returned, and the contents of this pointer are the return value
-	std::shared_ptr<TaskState<void>> M_SharedState;
+	// Pointer to state that is shared between the promise, the task, and task views. weak so that a library user dropping their pointer to the TaskState will cancel the task
+	std::weak_ptr<TaskState<void>> M_SharedState;
 };
 
 
