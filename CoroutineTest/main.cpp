@@ -131,6 +131,6 @@ int main() {
 			ActiveTask->Poll(); // By convention, we want every task to be polled on the frame that it starts, to let it do setup etc
 		}
 
-		std::cout << ActiveTask->GetFullDebugString() << std::endl;
+		std::cout << ActiveTask->GetDebugString() << std::endl;
 	}
 }

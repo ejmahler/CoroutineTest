@@ -32,12 +32,13 @@ public:
 	bool IsFinished() const { return !M_PromisePtr; }
 	std::optional<ReturnT> TakeReturnValue() { return std::move(M_ReturnValue); }
 
-	std::string GetDebugName() {
-		if (M_PromisePtr) {
-			return M_PromisePtr->M_DebugName;
-		}
-		else {
+	std::string GetDebugString() const {
+		if (!M_PromisePtr) {
 			return "[destroyed]";
+		} else if (!M_PromisePtr->M_DebugStringFn) {
+			return "[unset]";
+		} else {
+			return M_PromisePtr->M_DebugStringFn();
 		}
 	}
 
@@ -57,7 +58,7 @@ public:
 
 	bool IsFinished() const { return !M_PromisePtr; }
 
-	std::string GetDebugName() const;
+	std::string GetDebugString() const;
 
 private:
 	friend TaskPromise<void>;
@@ -124,8 +125,7 @@ public:
 	TaskController TakeController() { return std::move(M_Controller); }
 	std::shared_ptr<TaskState<ReturnT>> TakeState() { return std::move(M_State); }
 
-	std::string GetDebugName() const { return M_Controller.GetDebugName(); }
-	std::string GetFullDebugString() const { return M_Controller.GetFullDebugString(); }
+	std::string GetDebugString() const { return M_Controller.GetDebugString(); }
 
 private:
 	TaskController M_Controller;
@@ -146,15 +146,16 @@ using CoroutineState = TaskState<void>;
 // Awaiter that initializes a coroutine with some info that's difficult to get at the call-site or from the parameters
 // Immediately resumes, without returning to the caller.
 struct SetName {
-	std::string M_Name;
+	std::function<std::string(void)> M_NameFn;
 
-	inline SetName(std::string InName) : M_Name(InName) {}
+	inline SetName(const char *InString) : M_NameFn([=]() { return InString; }) {}
+	inline SetName(std::function<std::string(void)> InFn) : M_NameFn(InFn) {}
 
 	inline bool await_ready() const { return false; }
 
 	template<class PromiseT>
 	inline bool await_suspend(std::experimental::coroutine_handle<PromiseT> Handle) {
-		Handle.promise().M_DebugName = std::move(M_Name);
+		Handle.promise().M_DebugStringFn = std::move(M_NameFn);
 		return false;
 	}
 

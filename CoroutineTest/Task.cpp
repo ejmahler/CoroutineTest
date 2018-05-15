@@ -6,12 +6,15 @@ Task<void> TaskPromise<void>::get_return_object() {
 	return Task<void>{ std::experimental::coroutine_handle<TaskPromise<void>>::from_promise(*this), SharedState };
 }
 
-std::string TaskState<void>::GetDebugName() const {
-	if (M_PromisePtr) {
-		return M_PromisePtr->M_DebugName;
+std::string TaskState<void>::GetDebugString() const {
+	if (!M_PromisePtr) {
+		return "[destroyed]";
+	}
+	else if (!M_PromisePtr->M_DebugStringFn) {
+		return "[unset]";
 	}
 	else {
-		return "[destroyed]";
+		return M_PromisePtr->M_DebugStringFn();
 	}
 }
 

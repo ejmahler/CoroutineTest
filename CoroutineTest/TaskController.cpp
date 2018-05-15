@@ -73,23 +73,14 @@ void TaskController::Cleanup() {
 	}
 }
 
-std::string TaskController::GetDebugName() const {
-	if (!M_PromisePtr) {
-		return "[destroyed]";
-	}
-	else{
-		return M_PromisePtr->M_DebugName;
-	}
-}
-
-std::string TaskController::GetFullDebugString() const {
+std::string TaskController::GetDebugString() const {
 	if (!M_PromisePtr) {
 		return "[destroyed]";
 	}
 
-	std::string Base = M_PromisePtr->M_DebugName;
+	std::string Base = M_PromisePtr->M_DebugStringFn ? M_PromisePtr->M_DebugStringFn() : "[unset]";
 	if (M_PromisePtr && M_PromisePtr->InnerTask) {
-		return Base + " -> " + M_PromisePtr->InnerTask->GetFullDebugString();
+		return Base + " -> " + M_PromisePtr->InnerTask->GetDebugString();
 	}
 	else {
 		return Base;
